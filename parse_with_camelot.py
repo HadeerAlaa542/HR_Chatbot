@@ -1,63 +1,66 @@
 import camelot
 import os
+import arabic_reshaper
+from bidi.algorithm import get_display
 
 # Configuration
 pdf_path = "sharjah_hr_law 8.pdf"
-output_dir = "camelot_tables"
+output_dir = "camelot_tables_fixed"
+
+def fix_arabic(text):
+    """
+    Fixes Arabic text rendering by reshaping characters and applying Bidi algorithm.
+    """
+    if not text:
+        return ""
+    try:
+        reshaped_text = arabic_reshaper.reshape(text)
+        bidi_text = get_display(reshaped_text)
+        return bidi_text
+    except Exception:
+        return text
 
 def parse_with_camelot():
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    print(f"Extracting tables from '{pdf_path}' using Camelot...")
+    print(f"Extracting tables from '{pdf_path}' using Camelot with Arabic Fixes...")
     print("Note: This process requires Ghostscript to be installed on your system.")
 
     try:
-        # 1. Try 'Lattice' mode first (best for tables with clear grid lines)
-        print("Attempting extraction with flavor='lattice'...")
+        # 1. Extract tables using 'lattice' mode (best for grid lines)
+        # You can try 'stream' if lattice fails to find some tables.
         tables = camelot.read_pdf(pdf_path, pages='all', flavor='lattice')
         
-        print(f"Found {len(tables)} tables with lattice flavor.")
+        print(f"Found {len(tables)} tables.")
 
-        # 2. If 'Lattice' misses things, usually you'd try 'Stream' (for whitespace tables)
-        # For now, we stick to lattice as it's cleaner for official docs usually, 
-        # but you can uncomment the below to fallback:
-        # if len(tables) == 0:
-        #     print("Trying 'stream' flavor...")
-        #     tables = camelot.read_pdf(pdf_path, pages='all', flavor='stream')
-
-        # 3. Save results
-        json_results = []
-        
         for i, table in enumerate(tables):
-            # Generate filenames
-            json_filename = f"table_{i+1}_page{table.page}.json"
+            # 2. Get the Pandas DataFrame
+            df = table.df
+
+            # 3. Apply Arabic Fix to every cell in the DataFrame
+            # verify we are working with strings before applying
+            df_fixed = df.applymap(lambda x: fix_arabic(str(x)) if isinstance(x, str) else x)
+
+            # 4. Save results
+            json_filename = f"table_{i+1}_page{table.page}_fixed.json"
+            csv_filename = f"table_{i+1}_page{table.page}_fixed.csv"
+            
             json_path = os.path.join(output_dir, json_filename)
+            csv_path = os.path.join(output_dir, csv_filename)
             
-            # Save to JSON (orient='records' is usually best for readability)
-            # You can also use orient='split' or 'index' depending on your preference
-            table.df.to_json(json_path, orient='records', force_ascii=False, indent=4)
-            
-            # Also collect in a list if we want one big json later
-            json_results.append({
-                "table_id": i+1,
-                "page": table.page,
-                "data": table.df.to_dict(orient='records')
-            })
+            # Save JSON
+            df_fixed.to_json(json_path, orient='records', force_ascii=False, indent=4)
+            # Save CSV (useful for quick Excel inspection)
+            df_fixed.to_csv(csv_path, index=False, encoding='utf-8-sig')
 
-            # Print a preview to console
-            print(f"\n--- Table {i+1} (Page {table.page}) ---")
-            print(f"Accuracy: {table.accuracy}%")
-            print(f"Saved to: {json_path}")
+            print(f"Table {i+1} (Page {table.page}) saved to: {output_dir}")
 
-        print(f"\nExtraction complete. {len(tables)} JSON files saved to '{output_dir}/'.")
+        print(f"\nExtraction complete. Files saved to '{output_dir}/'.")
         
-    except ImportError as e:
-        print("\nERROR: Missing dependencies.")
-        print("Please run: pip install camelot-py opencv-python ghostscript")
     except Exception as e:
         print(f"\nERROR: {e}")
-        print("Common fix: Install Ghostscript (https://ghostscript.com/releases/gsdnld.html) and add to PATH.")
+        print("Ensure Ghostscript is installed and added to PATH.")
 
 if __name__ == "__main__":
     if os.path.exists(pdf_path):
