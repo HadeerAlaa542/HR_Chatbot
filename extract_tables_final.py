@@ -12,10 +12,6 @@ import re
 def repair_text(text):
     if not isinstance(text, str):
         return text
-    
-def repair_text(text):
-    if not isinstance(text, str):
-        return text
 
     # Generic Fix 1: English Text merged with Arabic 'أ' (Alif Hamza) acting as space
     # e.g., "Iأacknowledge" -> "I acknowledge"
@@ -39,10 +35,11 @@ def repair_text(text):
     # This is trickier because 'Ain' connects. But 'Ain' + 'Alif' inside a word is rare 
     # except in specific roots (like سأل - Sa'al - Sin not Ain).
     # 'Ain' + 'Alif Hamza' (عأ) is extremely rare inside a root word.
-    # So we can safely split it? 
-    # Example: "قرآن" uses Madda. "مسألة" uses Sin.
-    # "خطأ" ends with Alif. 
-    # Let's risk splitting (Boundaries usually happen at word ends like '...aa' or '...a').
+    text = re.sub(r'([عغ])(أ)', r'\1 \2', text)
+
+    # Fix Brackets for RTL display (Requested by User)
+    # Swap ( and ) because of Bidi mirroring issues
+    text = text.replace('(', 'TEMPOPEN').replace(')', '(').replace('TEMPOPEN', ')')
     
     return text
 
@@ -90,10 +87,10 @@ def extract_tables_final(pdf_path):
                 }
                 all_tables_data.append(table_dict)
                 
-                # Save CSV
-                csv_filename = f"table_p{i+1}_{j+1}.csv"
-                csv_path = os.path.join(output_dir, csv_filename)
-                df.to_csv(csv_path, index=False, header=False, encoding='utf-8-sig')
+                # Save CSV (Disabled by user request)
+                # csv_filename = f"table_p{i+1}_{j+1}.csv"
+                # csv_path = os.path.join(output_dir, csv_filename)
+                # df.to_csv(csv_path, index=False, header=False, encoding='utf-8-sig')
                 
                 # RAG Chunk
                 rag_chunk = df.to_string(index=False, header=False)
