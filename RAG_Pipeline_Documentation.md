@@ -37,7 +37,7 @@ graph TD
     
     subgraph "Stream B (Probabilistic)"
     D --> D1[OpenCV Contour Detection]
-    D1 --> D2[LLM Classification (Is This A Table?)]
+    D1 --> D2["LLM Classification (Is This A Table?)"]
     D2 --> D3[VLM Semantic Interpretation]
     end
     
